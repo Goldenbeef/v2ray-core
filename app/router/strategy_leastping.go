@@ -1,19 +1,31 @@
+//go:build !confonly
 // +build !confonly
 
 package router
 
 import (
 	"context"
+	"sync"
 
-	core "github.com/v2fly/v2ray-core/v4"
-	"github.com/v2fly/v2ray-core/v4/app/observatory"
-	"github.com/v2fly/v2ray-core/v4/common"
-	"github.com/v2fly/v2ray-core/v4/features/extension"
+	core "github.com/v2fly/v2ray-core/v5"
+	"github.com/v2fly/v2ray-core/v5/app/observatory"
+	"github.com/v2fly/v2ray-core/v5/common"
+	"github.com/v2fly/v2ray-core/v5/features"
+	"github.com/v2fly/v2ray-core/v5/features/extension"
 )
 
 type LeastPingStrategy struct {
 	ctx         context.Context
 	observatory extension.Observatory
+
+	config *StrategyLeastPingConfig
+
+	lock       sync.Mutex
+	lastChoice string
+}
+
+func (l *LeastPingStrategy) GetPrincipleTarget(strings []string) []string {
+	return []string{l.PickOutbound(strings)}
 }
 
 func (l *LeastPingStrategy) InjectContext(ctx context.Context) {
@@ -23,9 +35,18 @@ func (l *LeastPingStrategy) InjectContext(ctx context.Context) {
 func (l *LeastPingStrategy) PickOutbound(strings []string) string {
 	if l.observatory == nil {
 		common.Must(core.RequireFeatures(l.ctx, func(observatory extension.Observatory) error {
-			l.observatory = observatory
+			if l.config.ObserverTag != "" {
+				l.observatory = common.Must2(observatory.(features.TaggedFeatures).GetFeaturesByTag(l.config.ObserverTag)).(extension.Observatory)
+			} else {
+				l.observatory = observatory
+			}
 			return nil
 		}))
+	}
+
+	if l.observatory == nil {
+		newError("cannot find observatory").WriteToLog()
+		return ""
 	}
 
 	observeReport, err := l.observatory.GetObservation(l.ctx)
@@ -41,7 +62,16 @@ func (l *LeastPingStrategy) PickOutbound(strings []string) string {
 		for _, v := range status {
 			if outboundsList.contains(v.OutboundTag) && v.Alive && v.Delay < leastPing {
 				selectedOutboundName = v.OutboundTag
+				leastPing = v.Delay
 			}
+		}
+		{
+			l.lock.Lock()
+			if selectedOutboundName == "" && l.config.StickyChoice {
+				selectedOutboundName = l.lastChoice
+			}
+			l.lastChoice = selectedOutboundName
+			l.lock.Unlock()
 		}
 		return selectedOutboundName
 	}
@@ -59,4 +89,8 @@ func (o outboundList) contains(name string) bool {
 		}
 	}
 	return false
+}
+
+func init() {
+	common.Must(common.RegisterConfig((*StrategyLeastPingConfig)(nil), nil))
 }

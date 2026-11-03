@@ -3,18 +3,25 @@ package outbound_test
 import (
 	"context"
 	"testing"
-
-	core "github.com/v2fly/v2ray-core/v4"
-	"github.com/v2fly/v2ray-core/v4/app/policy"
-	. "github.com/v2fly/v2ray-core/v4/app/proxyman/outbound"
-	"github.com/v2fly/v2ray-core/v4/app/stats"
-	"github.com/v2fly/v2ray-core/v4/common/net"
-	"github.com/v2fly/v2ray-core/v4/common/serial"
-	"github.com/v2fly/v2ray-core/v4/features/outbound"
-	"github.com/v2fly/v2ray-core/v4/proxy/freedom"
-	"github.com/v2fly/v2ray-core/v4/transport/internet"
-
 	_ "unsafe"
+
+	"google.golang.org/protobuf/types/known/anypb"
+
+	core "github.com/v2fly/v2ray-core/v5"
+	"github.com/v2fly/v2ray-core/v5/app/policy"
+	. "github.com/v2fly/v2ray-core/v5/app/proxyman/outbound"
+	"github.com/v2fly/v2ray-core/v5/app/stats"
+	"github.com/v2fly/v2ray-core/v5/common/environment"
+	"github.com/v2fly/v2ray-core/v5/common/environment/deferredpersistentstorage"
+	"github.com/v2fly/v2ray-core/v5/common/environment/envctx"
+	"github.com/v2fly/v2ray-core/v5/common/environment/filesystemimpl"
+	"github.com/v2fly/v2ray-core/v5/common/environment/systemnetworkimpl"
+	"github.com/v2fly/v2ray-core/v5/common/environment/transientstorageimpl"
+	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/common/serial"
+	"github.com/v2fly/v2ray-core/v5/features/outbound"
+	"github.com/v2fly/v2ray-core/v5/proxy/freedom"
+	"github.com/v2fly/v2ray-core/v5/transport/internet"
 )
 
 func TestInterfaces(t *testing.T) {
@@ -22,12 +29,12 @@ func TestInterfaces(t *testing.T) {
 	_ = (outbound.Manager)(new(Manager))
 }
 
-//go:linkname toContext github.com/v2fly/v2ray-core/v4.toContext
+//go:linkname toContext github.com/v2fly/v2ray-core/v5.toContext
 func toContext(ctx context.Context, v *core.Instance) context.Context
 
 func TestOutboundWithoutStatCounter(t *testing.T) {
 	config := &core.Config{
-		App: []*serial.TypedMessage{
+		App: []*anypb.Any{
 			serial.ToTypedMessage(&stats.Config{}),
 			serial.ToTypedMessage(&policy.Config{
 				System: &policy.SystemPolicy{
@@ -42,6 +49,14 @@ func TestOutboundWithoutStatCounter(t *testing.T) {
 	v, _ := core.New(config)
 	v.AddFeature((outbound.Manager)(new(Manager)))
 	ctx := toContext(context.Background(), v)
+	defaultNetworkImpl := systemnetworkimpl.NewSystemNetworkDefault()
+	defaultFilesystemImpl := filesystemimpl.NewDefaultFileSystemDefaultImpl()
+	deferredPersistentStorageImpl := deferredpersistentstorage.NewDeferredPersistentStorage(ctx)
+	rootEnv := environment.NewRootEnvImpl(ctx,
+		transientstorageimpl.NewScopedTransientStorageImpl(), defaultNetworkImpl.Dialer(), defaultNetworkImpl.Listener(),
+		defaultFilesystemImpl, deferredPersistentStorageImpl)
+	proxyEnvironment := rootEnv.ProxyEnvironment("o")
+	ctx = envctx.ContextWithEnvironment(ctx, proxyEnvironment)
 	h, _ := NewHandler(ctx, &core.OutboundHandlerConfig{
 		Tag:           "tag",
 		ProxySettings: serial.ToTypedMessage(&freedom.Config{}),
@@ -55,7 +70,7 @@ func TestOutboundWithoutStatCounter(t *testing.T) {
 
 func TestOutboundWithStatCounter(t *testing.T) {
 	config := &core.Config{
-		App: []*serial.TypedMessage{
+		App: []*anypb.Any{
 			serial.ToTypedMessage(&stats.Config{}),
 			serial.ToTypedMessage(&policy.Config{
 				System: &policy.SystemPolicy{
@@ -71,6 +86,14 @@ func TestOutboundWithStatCounter(t *testing.T) {
 	v, _ := core.New(config)
 	v.AddFeature((outbound.Manager)(new(Manager)))
 	ctx := toContext(context.Background(), v)
+	defaultNetworkImpl := systemnetworkimpl.NewSystemNetworkDefault()
+	defaultFilesystemImpl := filesystemimpl.NewDefaultFileSystemDefaultImpl()
+	deferredPersistentStorageImpl := deferredpersistentstorage.NewDeferredPersistentStorage(ctx)
+	rootEnv := environment.NewRootEnvImpl(ctx,
+		transientstorageimpl.NewScopedTransientStorageImpl(), defaultNetworkImpl.Dialer(), defaultNetworkImpl.Listener(),
+		defaultFilesystemImpl, deferredPersistentStorageImpl)
+	proxyEnvironment := rootEnv.ProxyEnvironment("o")
+	ctx = envctx.ContextWithEnvironment(ctx, proxyEnvironment)
 	h, _ := NewHandler(ctx, &core.OutboundHandlerConfig{
 		Tag:           "tag",
 		ProxySettings: serial.ToTypedMessage(&freedom.Config{}),

@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/v2fly/v2ray-core/v4/common"
-	"github.com/v2fly/v2ray-core/v4/common/platform"
-	"github.com/v2fly/v2ray-core/v4/common/platform/filesystem"
-	"github.com/v2fly/v2ray-core/v4/infra/conf/cfgcommon"
-	"github.com/v2fly/v2ray-core/v4/infra/conf/geodata"
-	_ "github.com/v2fly/v2ray-core/v4/infra/conf/geodata/standard"
-	"github.com/v2fly/v2ray-core/v4/infra/conf/rule"
+	"github.com/v2fly/v2ray-core/v5/common"
+	"github.com/v2fly/v2ray-core/v5/common/platform"
+	"github.com/v2fly/v2ray-core/v5/common/platform/filesystem"
+	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
+	"github.com/v2fly/v2ray-core/v5/infra/conf/geodata"
+	_ "github.com/v2fly/v2ray-core/v5/infra/conf/geodata/standard"
+	"github.com/v2fly/v2ray-core/v5/infra/conf/rule"
 )
 
 func init() {
@@ -29,7 +29,7 @@ func init() {
 	os.Setenv("v2ray.location.asset", tempPath)
 
 	if _, err := os.Stat(geoipPath); err != nil && errors.Is(err, fs.ErrNotExist) {
-		common.Must(os.MkdirAll(tempPath, 0755))
+		common.Must(os.MkdirAll(tempPath, 0o755))
 		geoipBytes, err := common.FetchHTTPContent(geoipURL)
 		common.Must(err)
 		common.Must(filesystem.WriteFile(geoipPath, geoipBytes))
@@ -39,7 +39,7 @@ func init() {
 func TestToCidrList(t *testing.T) {
 	t.Log(os.Getenv("v2ray.location.asset"))
 
-	common.Must(filesystem.CopyFile(platform.GetAssetLocation("geoiptestrouter.dat"), platform.GetAssetLocation("geoip.dat")))
+	common.Must(filesystem.CopyFile(platform.GetAssetLocation("geoiptestrouter.dat"), platform.GetAssetLocation("geoip.dat"), 0o600))
 
 	ips := cfgcommon.StringList([]string{
 		"geoip:us",

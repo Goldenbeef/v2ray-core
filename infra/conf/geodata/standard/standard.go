@@ -5,19 +5,19 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/v2fly/v2ray-core/v4/app/router"
-	"github.com/v2fly/v2ray-core/v4/common/platform/filesystem"
-	"github.com/v2fly/v2ray-core/v4/infra/conf/geodata"
+	"github.com/v2fly/v2ray-core/v5/app/router/routercommon"
+	"github.com/v2fly/v2ray-core/v5/common/platform/filesystem"
+	"github.com/v2fly/v2ray-core/v5/infra/conf/geodata"
 )
 
-//go:generate go run github.com/v2fly/v2ray-core/v4/common/errors/errorgen
+//go:generate go run github.com/v2fly/v2ray-core/v5/common/errors/errorgen
 
-func loadIP(filename, country string) ([]*router.CIDR, error) {
+func loadIP(filename, country string) ([]*routercommon.CIDR, error) {
 	geoipBytes, err := filesystem.ReadAsset(filename)
 	if err != nil {
 		return nil, newError("failed to open file: ", filename).Base(err)
 	}
-	var geoipList router.GeoIPList
+	var geoipList routercommon.GeoIPList
 	if err := proto.Unmarshal(geoipBytes, &geoipList); err != nil {
 		return nil, err
 	}
@@ -31,12 +31,12 @@ func loadIP(filename, country string) ([]*router.CIDR, error) {
 	return nil, newError("country not found in ", filename, ": ", country)
 }
 
-func loadSite(filename, list string) ([]*router.Domain, error) {
+func loadSite(filename, list string) ([]*routercommon.Domain, error) {
 	geositeBytes, err := filesystem.ReadAsset(filename)
 	if err != nil {
 		return nil, newError("failed to open file: ", filename).Base(err)
 	}
-	var geositeList router.GeoSiteList
+	var geositeList routercommon.GeoSiteList
 	if err := proto.Unmarshal(geositeBytes, &geositeList); err != nil {
 		return nil, err
 	}
@@ -50,14 +50,13 @@ func loadSite(filename, list string) ([]*router.Domain, error) {
 	return nil, newError("list not found in ", filename, ": ", list)
 }
 
-type standardLoader struct {
-}
+type standardLoader struct{}
 
-func (d standardLoader) LoadSite(filename, list string) ([]*router.Domain, error) {
+func (d standardLoader) LoadSite(filename, list string) ([]*routercommon.Domain, error) {
 	return loadSite(filename, list)
 }
 
-func (d standardLoader) LoadIP(filename, country string) ([]*router.CIDR, error) {
+func (d standardLoader) LoadIP(filename, country string) ([]*routercommon.CIDR, error) {
 	return loadIP(filename, country)
 }
 
